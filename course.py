@@ -135,6 +135,5 @@ if __name__ == "__main__":
             # 假设每个企业的订单量是随机的，这里可以换成更复杂的策略
             actions = np.random.randint(1, 21, size=(num_firms, 1))  # 随机生成每个企业的订单量
             next_state, rewards, done = env.step(actions)
-            print('state: ', next_state)
             total_rewards += rewards
             print(f"Episode {episode + 1}, Step {env.current_step}, Rewards: {rewards.T}, Total Rewards: {total_rewards.T}")
