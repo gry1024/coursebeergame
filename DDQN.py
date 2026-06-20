@@ -188,12 +188,12 @@ class ReplayBuffer:
         """
         return len(self.buffer)
 
-# 定义DQN智能体
-class DQNAgent:
+# 定义DDQN智能体
+class DDQNAgent:
     def __init__(self, state_size, action_size, firm_id, max_order=20, buffer_size=10000, batch_size=64, gamma=0.99, 
                  learning_rate=1e-3, tau=1e-3, update_every=4):
         """
-        初始化DQN智能体
+        初始化DDQN智能体
         
         :param state_size: 状态空间维度
         :param action_size: 动作空间维度
@@ -288,9 +288,11 @@ class DQNAgent:
         next_states = torch.from_numpy(np.vstack([ns.flatten() for ns in next_states])).float().to(device)
         dones = torch.from_numpy(np.vstack(dones).astype(np.uint8)).float().to(device)
         
-        # 从目标网络获取下一个状态的最大预测Q值
-        Q_targets_next = self.target_network(next_states).detach().max(1)[0].unsqueeze(1)
-        
+        # # 从目标网络获取下一个状态的最大预测Q值
+        # Q_targets_next = self.target_network(next_states).detach().max(1)[0].unsqueeze(1)
+        next_actions = self.q_network(next_states).detach().argmax(1).unsqueeze(1)  # 从当前网络选择下一个动作
+        Q_targets_next = self.target_network(next_states).gather(1,next_actions)  # 从目标网络获取下一个状态的Q值
+
         # 计算目标Q值
         Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
         
@@ -351,12 +353,31 @@ class DQNAgent:
             return True
         return False
 
-def train_dqn(env, agent, num_episodes=1000, max_t=100, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
+# 供应链基准策略：Order-Up-To（订货至目标水平）策略
+def order_up_to_policy(state, firm_id, target_inventory=120, max_order=20):
     """
-    训练DQN智能体
+    Order-Up-To 策略：基于当前库存，将库存补充到目标水平。
+   
+
+    :param state: 当前环境观察 (num_firms, 3)，每行是 [订单, 满足需求, 库存]
+    :param firm_id: 企业 ID
+    :param target_inventory: 目标库存水平 S
+    :param max_order: 最大订单量
+    :return: 该企业的订单量
+    """
+    current_inventory = state[firm_id][2]  # 库存是第3列
+    order = max(0, target_inventory - current_inventory)
+    order = min(order, max_order)  # 限制最大订单量
+    return max(0, int(order))
+
+
+
+def train_ddqn(env, agent, num_episodes=1000, max_t=100, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
+    """
+    训练DDQN智能体
     
     :param env: 环境
-    :param agent: DQN智能体
+    :param agent: DDQN智能体
     :param num_episodes: 训练的episodes数量
     :param max_t: 每个episode的最大步数
     :param eps_start: 起始epsilon值
@@ -381,8 +402,10 @@ def train_dqn(env, agent, num_episodes=1000, max_t=100, eps_start=1.0, eps_end=0
                     action = agent.act(firm_state, eps)
                     actions[firm_id] = action
                 else:
-                    # 对其他企业采取随机策略
-                    actions[firm_id] = np.random.randint(1, 21)
+                    # # 对其他企业采取随机策略
+                    # actions[firm_id] = np.random.randint(1, 21)
+                    # 对其他企业采取供应链策略
+                    actions[firm_id] = order_up_to_policy(state, firm_id)
             
             # 执行动作
             next_state, rewards, done = env.step(actions)
@@ -412,19 +435,19 @@ def train_dqn(env, agent, num_episodes=1000, max_t=100, eps_start=1.0, eps_end=0
         
         # 每隔一定episode保存模型
         if i_episode % 500 == 0:
-            agent.save(f'models/dqn_agent_firm_{agent.firm_id}_episode_{i_episode}.pth')
+            agent.save(f'models/ddqn_agent_firm_{agent.firm_id}_episode_{i_episode}.pth')
     
     # 训练结束后保存最终模型
-    agent.save(f'models/dqn_agent_firm_{agent.firm_id}_final.pth')
+    agent.save(f'models/ddqn_agent_firm_{agent.firm_id}_final.pth')
     
     return scores
 
 def test_agent(env, agent, num_episodes=10):
     """
-    测试训练好的DQN智能体
+    测试训练好的DDQN智能体
     
     :param env: 环境
-    :param agent: 训练好的DQN智能体
+    :param agent: 训练好的DDQN智能体
     :param num_episodes: 测试的episodes数量
     :return: 所有episode的奖励和详细信息
     """
@@ -452,8 +475,10 @@ def test_agent(env, agent, num_episodes=10):
                     action = agent.act(firm_state, epsilon=0.0)
                     actions[firm_id] = action
                 else:
-                    # 对其他企业采取随机策略
-                    actions[firm_id] = np.random.randint(1, 21)
+                    # # 对其他企业采取随机策略
+                    # actions[firm_id] = np.random.randint(1, 21)
+                    # 对其他企业采取供应链策略
+                    actions[firm_id] = order_up_to_policy(state, firm_id)
             
             # 执行动作
             next_state, rewards, done = env.step(actions)
@@ -501,11 +526,11 @@ def plot_training_results(scores, window_size=100):
     plt.figure(figsize=(10, 6))
     plt.plot(np.arange(len(scores)), scores, alpha=0.3, label='原始奖励')
     plt.plot(np.arange(len(avg_scores)), avg_scores, label=f'{window_size}个episode的移动平均')
-    plt.title('DQN训练过程中的奖励')
+    plt.title('DDQN训练过程中的奖励')
     plt.xlabel('Episode')
     plt.ylabel('奖励')
     plt.legend()
-    plt.savefig('figures/training_rewards.png')
+    plt.savefig('figures/training_rewards_ddqn.png')
     plt.close()
 
 def plot_test_results(scores, inventory_history, orders_history, demand_history, satisfied_demand_history):
@@ -554,7 +579,7 @@ def plot_test_results(scores, inventory_history, orders_history, demand_history,
     axs[1, 1].set_ylabel('总奖励')
     
     plt.tight_layout()
-    plt.savefig('figures/test_results.png')
+    plt.savefig('figures/test_results_ddqn.png')
     plt.close()
 
 if __name__ == "__main__":
@@ -574,15 +599,15 @@ if __name__ == "__main__":
     # 创建仿真环境
     env = Env(num_firms, p, h, c, initial_inventory, poisson_lambda, max_steps)
     
-    # 为第二个企业创建DQN智能体
+    # 为第二个企业创建DDQN智能体
     firm_id = 1  # 选择第二个企业进行训练
     state_size = 3  # 每个企业的状态维度：订单、满足的需求和库存
     action_size = 20  # 假设最大订单量为20
     
-    agent = DQNAgent(state_size=state_size, action_size=action_size, firm_id=firm_id, max_order=action_size)
+    agent = DDQNAgent(state_size=state_size, action_size=action_size, firm_id=firm_id, max_order=action_size)
     
-    # 训练DQN智能体
-    scores = train_dqn(env, agent, num_episodes=2000, max_t=max_steps, eps_start=1.0, eps_end=0.01, eps_decay=0.995)
+    # 训练DDQN智能体
+    scores = train_ddqn(env, agent, num_episodes=2000, max_t=max_steps, eps_start=1.0, eps_end=0.01, eps_decay=0.995)
     
     plt.rcParams['font.sans-serif'] = ['SimHei']  # 指定中文字体
     plt.rcParams['axes.unicode_minus'] = False  # 绘图显示负号
