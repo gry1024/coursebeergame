@@ -1,0 +1,22 @@
+# 供应链环境默认参数
+num_firms: 3
+p: [10, 9, 8]
+h: 0.5
+c: 2
+initial_inventory: 100
+poisson_lambda: 10
+max_steps: 100
+lead_time: 0
+demand_type: poisson
+seasonal_amplitude: 5.0
+seasonal_period: 25
+shock_prob: 0.05
+shock_multiplier: 4.0
+
+max_order: 20
+history_len: null  # null 表示自动使用 lead_time + 1
+
+paths:
+  models: models
+  figures: figures
+  results: results

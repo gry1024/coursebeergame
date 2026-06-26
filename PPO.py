@@ -1,10 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scienceplots
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import random
 import os
+from utils import plotting
 
 
 # ============================================================
@@ -738,19 +740,22 @@ def plot_training_results(scores, window_size=100):
     :param scores: 每个 episode 的奖励列表
     :param window_size: 移动平均窗口大小
     """
+    plotting.set_style()
+
     def moving_average(data, window_size):
         return [np.mean(data[max(0, i - window_size):i + 1]) for i in range(len(data))]
 
     avg_scores = moving_average(scores, window_size)
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(np.arange(len(scores)), scores, alpha=0.3, label='原始奖励')
-    plt.plot(np.arange(len(avg_scores)), avg_scores, label=f'{window_size}个episode的移动平均')
-    plt.title('PPO训练过程中的奖励')
-    plt.xlabel('Episode')
-    plt.ylabel('奖励')
-    plt.legend()
-    plt.savefig('figures/training_rewards_ppo.png')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(np.arange(len(scores)), scores, alpha=0.3, label='原始奖励', linewidth=0.8)
+    ax.plot(np.arange(len(avg_scores)), avg_scores, label=f'{window_size}个episode的移动平均', linewidth=1.5)
+    ax.set_title('PPO训练过程中的奖励')
+    ax.set_xlabel('Episode')
+    ax.set_ylabel('奖励')
+    ax.legend(frameon=True)
+    os.makedirs('figures', exist_ok=True)
+    fig.savefig('figures/training_rewards_ppo.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("训练结果图已保存至 figures/training_rewards_ppo.png")
 
@@ -765,6 +770,8 @@ def plot_test_results(scores, inventory_history, orders_history, demand_history,
     :param demand_history: 每个 episode 的需求历史
     :param satisfied_demand_history: 每个 episode 的满足需求历史
     """
+    plotting.set_style()
+
     avg_inventory = np.mean(inventory_history, axis=0)
     avg_orders = np.mean(orders_history, axis=0)
     avg_demand = np.mean(demand_history, axis=0)
@@ -773,24 +780,24 @@ def plot_test_results(scores, inventory_history, orders_history, demand_history,
     fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 
     # 平均库存
-    axs[0, 0].plot(avg_inventory)
+    axs[0, 0].plot(avg_inventory, linewidth=1.5)
     axs[0, 0].set_title('平均库存')
     axs[0, 0].set_xlabel('时间步')
     axs[0, 0].set_ylabel('库存量')
 
     # 平均订单量
-    axs[0, 1].plot(avg_orders)
+    axs[0, 1].plot(avg_orders, linewidth=1.5)
     axs[0, 1].set_title('平均订单量')
     axs[0, 1].set_xlabel('时间步')
     axs[0, 1].set_ylabel('订单量')
 
     # 平均需求 vs 平均满足需求
-    axs[1, 0].plot(avg_demand, label='需求')
-    axs[1, 0].plot(avg_satisfied_demand, label='满足的需求')
+    axs[1, 0].plot(avg_demand, label='需求', linewidth=1.5)
+    axs[1, 0].plot(avg_satisfied_demand, label='满足的需求', linewidth=1.5)
     axs[1, 0].set_title('平均需求 vs 满足的需求')
     axs[1, 0].set_xlabel('时间步')
     axs[1, 0].set_ylabel('数量')
-    axs[1, 0].legend()
+    axs[1, 0].legend(frameon=True)
 
     # 测试奖励柱状图
     axs[1, 1].bar(range(len(scores)), scores)
@@ -798,8 +805,10 @@ def plot_test_results(scores, inventory_history, orders_history, demand_history,
     axs[1, 1].set_xlabel('Episode')
     axs[1, 1].set_ylabel('总奖励')
 
+    fig.suptitle('PPO测试结果')
     plt.tight_layout()
-    plt.savefig('figures/test_results_ppo.png')
+    os.makedirs('figures', exist_ok=True)
+    fig.savefig('figures/test_results_ppo.png', dpi=300, bbox_inches='tight')
     plt.close()
     print("测试结果图已保存至 figures/test_results_ppo.png")
 
@@ -811,10 +820,6 @@ if __name__ == "__main__":
     # 创建保存模型和图表的目录
     os.makedirs('models', exist_ok=True)
     os.makedirs('figures', exist_ok=True)
-
-    # 设置 Matplotlib 中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei']  # 指定中文字体
-    plt.rcParams['axes.unicode_minus'] = False    # 正确显示负号
 
     # 初始化环境参数
     num_firms = 3              # 企业数量
