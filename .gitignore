@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 .venv2/
 missfont.log
+
+# Build / filter artifacts
+*.aux *.bbl *.blg *.log *.out *.toc *.synctex.gz
+.filter-replace.txt
+.filter-mailmap
+.git.bak.*/

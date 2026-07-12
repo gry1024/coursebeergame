@@ -1,33 +1,18 @@
 # 基于深度强化学习的啤酒游戏供应链
 
-本项目完整、可复现地实现了啤酒游戏(Beer Game)供应链基准测试，
-采用五种深度强化学习算法(DQN、Double DQN、PPO、IPPO、MAPPO)，
-并将其扩展至考虑提前期、非泊松需求分布以及多智能体 CTDE 设置的情形。
-
-本项目为北京大学课程 *多智能体基础* 的配套实现。
+完整、可复现地实现了啤酒游戏(Beer Game)供应链基准测试，采用五种深度强化
+学习算法(DQN、Double DQN、PPO、IPPO、MAPPO)，并将其扩展至考虑提前期、
+非泊松需求分布以及多智能体 CTDE 设置的情形。
 
 ## 什么是啤酒游戏？
 
-啤酒游戏是一种广泛使用的游戏，由多名玩家组成的串行供应链网络组成：
+啤酒游戏是一种广泛使用的串行供应链仿真游戏：零售商、批发商、制造商等
+多家企业按顺序相连，根据观察到的订单和需求等信息独立决策向上游订购的
+订单水平。由于每家企业都在局部独立决策，客户需求的小幅波动会沿供应链
+向上游传递时被不断放大——这就是著名的 *牛鞭效应* (bullwhip effect)。
 
-1. 零售商：接收客户的订单并向批发商下订单；
-2. 中间商：接收上游企业的订单并向零售商下订单。
-
-```
-                  订购                       订购                    订购
-上游 ──交付──► 中间商 ──交付──► … ──交付──► 中间商 ──交付──► 零售商 ──► 满足用户需求
-```
-
-供应链中的企业根据观察到的订单和需求等信息，决策向上游订购的订单水平。
-研究对象可以是链上企业（在作业代码中定义 3 个），可以选择一个企业进行
-利润优化，将其余看作是环境的一部分。
-
-由于每家企业都在局部上独立决策，客户需求的小幅波动会沿供应链向上游
-传递时被不断放大——这就是著名的 *牛鞭效应* (bullwhip effect, Lee,
-Padmanabhan & Whang, 1997; Sterman, 1989)。
-
-本项目沿用初始代码中的三企业链结构，并将订货量视为深度强化学习
-智能体选择的离散动作。
+本项目沿用初始代码中的三企业链结构，并将订货量视为深度强化学习智能体
+选择的离散动作。
 
 ## 项目结构
 
@@ -61,11 +46,8 @@ coursebeergame/
 ├── main_multi.py                 # 多智能体入口：IPPO / MAPPO
 ├── compare.py                    # 网格实验驱动与图表生成
 ├── envs/ figures/ models/ results/   # 由脚本运行生成
-├── report.tex, report_cn.tex     # 实验报告 LaTeX 源文件 (英文 / 中文)
-├── report.pdf, report_cn.pdf     # 编译后的报告
-├── report.bib                    # 参考文献
-├── architecture.md               # 详细架构说明
-├── 组队课题.pdf                  # 课程课题说明
+├── architecture.md               # 架构说明文档
+├── README.md                     # 本文件
 └── requirements.txt
 ```
 
@@ -190,40 +172,6 @@ python compare.py --algs=dqn,ddqn,ppo,ippo,mappo --seeds=0,1,2 --lead_times=0,2 
 | 每 N 个 episode 更新 | 4 | 4 | 5 | 5 | 5 |
 | 训练 episode 数     | 2000 | 2000 | 2000 | 3000 | 3000 |
 
-## 复现实验报告
-
-PDF 实验报告由 `report.tex` / `report_cn.tex` 与 `report.bib` 生成。
-中文版使用 `xelatex` 编译，英文版使用 `pdflatex` 编译：
-
-```bash
-# 英文
-pdflatex report.tex && bibtex report && pdflatex report.tex && pdflatex report.tex
-
-# 中文
-xelatex report_cn.tex && bibtex report_cn && xelatex report_cn.tex && xelatex report_cn.tex
-```
-
-自定义样式 `icml_simple.sty` 与 `icml_cn.sty` 提供类 ICML 的双栏排版，
-不依赖完整的 ICML 2022 模板。它们假定 LaTeX 环境中已安装 `ctex`、
-`titlesec`、`caption`、`natbib` 和 `hyperref`。
-
-## 结果概览
-
-通过 60 次网格扫描实验，我们得到以下五条主要经验性结论：
-
-1. **单智能体 DQN/DDQN/PPO 表现无显著差异** —— 当邻居企业采用
-   确定性的 Order-Up-To 启发式时，三者都会收敛为常量订货策略
-   (订单方差为 0)，最后 100 个 episode 的奖励约为 715。
-2. **IPPO 较为脆弱**：在 3 个季节性需求种子中有 1 个会出现灾难性发散，
-   奖励跌至约 -25,000，即使将训练延长至 5,000 个 episode 仍无法恢复。
-   MAPPO 在同一网格上从未失败。
-3. **提前期会放大牛鞭效应**：在 L=2、泊松需求下，批发商位置的 MAPPO
-   在某一种子上达到 Var(订单)/Var(需求) = 9.97。
-4. **可预测的需求是学得会的**：在季节性需求下，IPPO 实现了
-   bw = [0.99, 0.76, 0.52] (上游订单方差 *小于* 需求方差——方差衰减)。
-5. **提前期的惩罚与算法无关**：所有算法在从 L=0 变为 L=2 时，
-   奖励均下降 1,100–1,700。
-
 ## 文件命名规范
 
 - 单智能体 CSV：`results/{alg}_single_firm{firm}_lt{LT}_demand{DEM}_seed{N}.csv`
@@ -243,12 +191,6 @@ xelatex report_cn.tex && bibtex report_cn && xelatex report_cn.tex && xelatex re
 
 ## 致谢
 
-啤酒游戏动力学遵循标准形式 (Sterman, 1989; Lee 等, 1997)。
+啤酒游戏动力学遵循标准形式 (Sterman, 1989; Lee et al., 1997)。
 DQN、PPO 和 SAC 基线参考自原始论文
-(Mnih 等, 2015; Schulman 等, 2017; Haarnoja 等, 2018)。
-
----
-
-作者：匿名 (北京大学, REDACTED_ID)  
-课程：多智能体基础 (Multi-Agent Fundamentals), 2026  
-助教：REDACTED_TA (redacted@stu.pku.edu.cn)
+(Mnih et al., 2015; Schulman et al., 2017; Haarnoja et al., 2018)。
